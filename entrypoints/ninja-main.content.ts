@@ -34,8 +34,8 @@ export default defineContentScript({
       dragstart: 'selection',
     };
 
-    const isCancelableType = (type: string): boolean => {
-      const feature = EVENT_FEATURE[type];
+    const isCancelableType = (event: Event): boolean => {
+      const feature = EVENT_FEATURE[event.type];
       return feature !== undefined && state[feature];
     };
 
@@ -53,7 +53,7 @@ export default defineContentScript({
     try {
       const nativePreventDefault = Event.prototype.preventDefault;
       Event.prototype.preventDefault = function (this: Event) {
-        if (isCancelableType(this.type)) return;
+        if (isCancelableType(this)) return;
         if (this instanceof KeyboardEvent && isDevShortcut(this)) return;
         nativePreventDefault.call(this);
       } as typeof Event.prototype.preventDefault;
@@ -66,7 +66,7 @@ export default defineContentScript({
           configurable: true,
           get: nativeGetReturnValue,
           set(this: Event, value: boolean) {
-            if (!value && isCancelableType(this.type)) return;
+            if (!value && isCancelableType(this)) return;
             nativeSetReturnValue.call(this, value);
           },
         });

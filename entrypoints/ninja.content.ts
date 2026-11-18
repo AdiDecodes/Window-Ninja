@@ -20,11 +20,14 @@ import {
 } from '../utils/storage';
 import {
   BLOCKING_ATTRS,
+  copyPasswordSelection,
   findOverlays,
+  isPasswordClipboardTarget,
   restorePasswords,
   revealPasswords,
   stripBlockingHandlers,
   unlockFormFields,
+  unlockPasswordClipboard,
 } from '../utils/dom';
 import { getStableSelector, isShadowElement } from '../utils/selectors';
 
@@ -55,7 +58,7 @@ export default defineContentScript({
     // listener. stopImmediatePropagation in the capture phase keeps site code
     // from ever running on these events, which defeats blockers regardless of
     // how they were registered (including pristine cross-realm references).
-    const isGatekeptType = (type: string): boolean => {
+    const isGatekeptType = (type: string, event: Event): boolean => {
       switch (type) {
         case 'contextmenu':
           return features.contextMenu;
@@ -73,11 +76,26 @@ export default defineContentScript({
       }
     };
     const gatekeep = (event: Event): void => {
-      if (isGatekeptType(event.type)) event.stopImmediatePropagation();
+      if (isGatekeptType(event.type, event)) event.stopImmediatePropagation();
     };
     for (const type of ['contextmenu', 'copy', 'cut', 'paste', 'beforecopy', 'beforecut', 'selectstart', 'dragstart']) {
       window.addEventListener(type, gatekeep, true);
     }
+
+    // Chromium never fires cut/copy for password inputs, so the native clipboard
+    // action can't be unblocked — we have to perform it ourselves.
+    const onKeyClipboardPassword = (event: KeyboardEvent): void => {
+      if (!features.copyPaste) return;
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'c' && key !== 'x') return;
+      const active = document.activeElement;
+      if (!(active instanceof HTMLInputElement) || !isPasswordClipboardTarget(active)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void copyPasswordSelection(active, key === 'x');
+    };
+    window.addEventListener('keydown', onKeyClipboardPassword, true);
 
     // ---------- MAIN world bridge ----------
 
@@ -154,6 +172,7 @@ export default defineContentScript({
       if (features.selection || features.contextMenu || features.copyPaste) {
         stripBlockingHandlers(document);
       }
+      if (features.copyPaste) unlockPasswordClipboard(document);
       if (features.unlockInputs) unlockFormFields(document);
       if (features.revealPasswords) revealPasswords(document);
     };

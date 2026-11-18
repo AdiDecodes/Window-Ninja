@@ -13,7 +13,7 @@ export type Features = Record<FeatureKey, boolean>;
 
 export const FEATURE_LABELS: Record<FeatureKey, { title: string; hint: string }> = {
   contextMenu: { title: 'Right-click', hint: 'Restore the native context menu' },
-  copyPaste: { title: 'Copy / cut / paste', hint: 'Allow clipboard actions' },
+  copyPaste: { title: 'Copy / cut / paste', hint: 'Allow clipboard actions, incl. password fields' },
   selection: { title: 'Text selection', hint: 'Override user-select: none' },
   devShortcuts: { title: 'Dev shortcuts', hint: 'F12, Ctrl/Cmd+U/S/P, Ctrl/Cmd+Shift+I/J/C' },
   unlockInputs: { title: 'Unlock inputs', hint: 'Remove readonly/disabled from form fields' },

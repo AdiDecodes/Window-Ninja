@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Anchor,
   Badge,
   Box,
   Button,
@@ -91,20 +90,6 @@ export default function App() {
 
   return (
     <Stack gap={8} p={10} className="wn-rise">
-      <Group justify="space-between" wrap="nowrap">
-        <Text fw={700} size="sm">
-          Window Ninja
-        </Text>
-        <Anchor
-          component="button"
-          size="xs"
-          c="dimmed"
-          onClick={() => browser.runtime.openOptionsPage()}
-        >
-          Settings
-        </Anchor>
-      </Group>
-
       {!supported || !host || !site || !features ? (
         <Text c="dimmed">Open a website to control Window Ninja here.</Text>
       ) : (
@@ -163,34 +148,40 @@ export default function App() {
             </Stack>
           </Paper>
 
-          <Stack gap={6}>
-            <Button
-              variant="default"
-              fullWidth
-              justify="space-between"
-              rightSection={<Kbd size="xs">Alt+Shift+E</Kbd>}
-              onClick={() => runCommand('erase-mode')}
-            >
-              Erase element
-            </Button>
-            <Button
-              variant="default"
-              fullWidth
-              onClick={() => runCommand('remove-overlays')}
-            >
-              Remove overlays
-            </Button>
-            <Button
-              variant="default"
-              fullWidth
-              justify="space-between"
-              disabled={!site.erasedSelectors.length}
-              rightSection={<Badge size="xs" variant="light" color="gray">{site.erasedSelectors.length}</Badge>}
-              onClick={() => runCommand('restore-erased')}
-            >
-              Restore erased
-            </Button>
-          </Stack>
+          <Button
+            variant="default"
+            fullWidth
+            justify="space-between"
+            rightSection={<Kbd size="xs">Alt+Shift+E</Kbd>}
+            onClick={() => runCommand('erase-mode')}
+          >
+            Erase element
+          </Button>
+          <Button
+            variant="default"
+            fullWidth
+            title="Restore erased"
+            aria-label="Restore erased"
+            justify="space-between"
+            disabled={!site.erasedSelectors.length}
+            leftSection={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 14l-4 -4l4 -4" />
+                <path d="M5 10h11a4 4 0 1 1 0 8h-1" />
+              </svg>
+            }
+            rightSection={
+              <Badge size="xs" variant="light" color="gray">
+                {site.erasedSelectors.length}
+              </Badge>
+            }
+            onClick={() => runCommand('restore-erased')}
+          >
+            Restore erased
+          </Button>
+          <Button variant="default" fullWidth onClick={() => runCommand('remove-overlays')}>
+            Remove overlays
+          </Button>
         </>
       )}
     </Stack>

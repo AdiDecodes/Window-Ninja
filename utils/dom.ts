@@ -50,6 +50,59 @@ const FORM_UNLOCK_SELECTOR = [
 
 const FORM_CLIPBOARD_ATTRS = ['onpaste', 'oncopy', 'oncut', 'oncontextmenu', 'ondrop'] as const;
 
+const PASSWORD_CLIPBOARD_ATTRS = ['oncopy', 'oncut', 'onpaste', 'onbeforecopy', 'onbeforecut'] as const;
+
+export function isPasswordClipboardTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement && target.type === 'password';
+}
+
+// Chromium never dispatches cut/copy events for password inputs, so the default
+// clipboard action never runs. We perform it manually instead.
+export async function copyPasswordSelection(input: HTMLInputElement, isCut: boolean): Promise<boolean> {
+  const { selectionStart, selectionEnd, value } = input;
+  if (selectionStart === null || selectionEnd === null || selectionStart === selectionEnd) return false;
+  const text = value.slice(selectionStart, selectionEnd);
+
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch {
+    // Classic fallback: expose the field as text so execCommand's copy path is allowed.
+    const origType = input.type;
+    input.type = 'text';
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    input.type = origType;
+  }
+  if (!ok) return false;
+
+  if (isCut) {
+    input.value = value.slice(0, selectionStart) + value.slice(selectionEnd);
+    input.setSelectionRange(selectionStart, selectionStart);
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  }
+  return true;
+}
+
+export function unlockPasswordClipboard(root: ParentNode): void {
+  const inputs = root.querySelectorAll<HTMLInputElement>('input[type="password"]');
+  for (const input of inputs) {
+    for (const attr of PASSWORD_CLIPBOARD_ATTRS) {
+      if (input.hasAttribute(attr)) {
+        // Overwrite with a benign handler first: Chrome keeps the parser-compiled
+        // handler active after removeAttribute, but re-setting the attribute evicts it.
+        input.setAttribute(attr, 'void 0');
+        input.removeAttribute(attr);
+      }
+      (input as unknown as HTMLElement & Record<string, unknown>)[attr] = null;
+    }
+  }
+}
+
 export function unlockFormFields(root: ParentNode): void {
   const locked = root.querySelectorAll(FORM_UNLOCK_SELECTOR);
   for (const el of locked) {
