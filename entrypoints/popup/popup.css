@@ -1,0 +1,34 @@
+body {
+  margin: 0;
+  width: 320px;
+  background: #0a0a0a;
+  color: #ededed;
+}
+
+@keyframes wn-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.wn-rise {
+  animation: wn-rise 0.18s ease-out backwards;
+}
+
+.wn-rise-1 { animation-delay: 20ms; }
+.wn-rise-2 { animation-delay: 40ms; }
+.wn-rise-3 { animation-delay: 60ms; }
+.wn-rise-4 { animation-delay: 80ms; }
+.wn-rise-5 { animation-delay: 100ms; }
+.wn-rise-6 { animation-delay: 120ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wn-rise {
+    animation: none;
+  }
+}

@@ -1,0 +1,225 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Window Ninja — full feature test page</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px 16px 220px; background: #0a0a0a; color: #ededed; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 18px; } h2 { font-size: 14px; margin: 26px 0 8px; color: #bbb; }
+  .note { color: #999; font-size: 12px; }
+  section { border: 1px solid #262626; border-radius: 8px; padding: 12px; margin: 10px 0; }
+  .locked-text { user-select: none; -webkit-user-select: none; padding: 10px; background: #1a1a1a; border-radius: 6px; }
+  input, textarea, select { display: block; margin: 6px 0; padding: 8px; width: 320px; background: #111; color: #eee; border: 1px solid #333; border-radius: 4px; }
+  button { margin: 4px 6px 4px 0; padding: 6px 10px; background: #222; color: #eee; border: 1px solid #444; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #333; }
+  .chip { display: inline-block; padding: 3px 8px; margin: 2px; background: #333; border-radius: 999px; font-size: 12px; }
+  #erase-target-1, #erase-target-2, #erase-target-3 { display: inline-block; padding: 10px 16px; margin: 4px; border-radius: 6px; }
+  #erase-target-1 { background: #444; } #erase-target-2 { background: #666; } #erase-target-3 { background: #888; }
+  #results { position: fixed; top: 0; right: 0; width: 380px; max-height: 88vh; overflow: auto; background: #111; border-left: 1px solid #333; padding: 10px; z-index: 100000; font: 12px ui-monospace, monospace; }
+  #results table { width: 100%; border-collapse: collapse; }
+  #results td { padding: 2px 4px; border-bottom: 1px solid #222; }
+  .pass { color: #4ade80; } .fail { color: #f87171; }
+  #log { position: fixed; bottom: 0; right: 0; width: 380px; height: 150px; overflow: auto; background: #0d0d0d; color: #4ade80; font: 11px ui-monospace, monospace; padding: 6px; z-index: 100001; border-top: 1px solid #333; }
+</style>
+</head>
+<body oncontextmenu="return false" oncopy="return false">
+<main>
+  <h1>Window Ninja — full feature test</h1>
+  <p class="note">Enable <b>localhost</b> in the Window Ninja popup first (turn on Unlock inputs + Reveal passwords too). Results rail (top right) runs live checks via <code>__wnSelfTest()</code>.</p>
+
+  <section>
+    <h2 style="margin:0 0 8px">Self-test</h2>
+    <button id="run-selftest">Run self-test now</button>
+    <button id="toggle-reblock">Re-blocker loop: ON</button>
+    <span class="note">re-adds body oncontextmenu attr every 800ms — extension must keep evicting it</span>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">1 · Right-click / copy / selection — JS blockers</h2>
+    <div class="locked-text" id="js-locked">JS-blocked region: try right-click, copy, selection.</div>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">2 · Inline attribute blockers</h2>
+    <div class="locked-text" id="inline-block" oncontextmenu="return false" oncopy="return false" onselectstart="return false" oncut="return false">Inline-blocked region (return false path).</div>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">3 · CSS selection lock</h2>
+    <div class="locked-text" id="css-locked">CSS-locked via user-select: none — computed value should become text.</div>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">4 · Locked form + clipboard blockers</h2>
+    <input id="ro-field" readonly value="readonly field">
+    <input id="dis-field" disabled value="disabled field">
+    <input id="clip-field" value="try paste here — blocked via inline attr" onpaste="return false" oncopy="return false" oncontextmenu="return false">
+    <div id="dyn-zone"></div>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">5 · Password fields</h2>
+    <input id="pw-field" type="password" value="hunter2">
+    <div id="dyn-pw-zone"></div>
+    <button id="add-pw">Add dynamic password field</button>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">6 · Element eraser targets</h2>
+    <span id="erase-target-1" class="chip">erase me 1</span>
+    <span id="erase-target-2" class="chip">erase me 2</span>
+    <span id="erase-target-3" class="chip">erase me 3</span>
+    <p class="note">Alt+Shift+E or popup button → click a chip → it should vanish and stay gone after reload. Esc exits. "Restore erased" in popup brings back the last one.</p>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">7 · Overlays</h2>
+    <button id="spawn-ov">Spawn overlay (z 9999)</button>
+    <button id="spawn-ov-low">Spawn overlay (z 400 — should survive)</button>
+    <button id="spawn-ov-3">Spawn 3 stacked overlays</button>
+    <p class="note">Then use Remove overlays (popup / Alt+Shift+O). Body scroll must be restored. The z-400 one must remain visible.</p>
+    <div id="overlay-zone"></div>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 8px">8 · Dev shortcuts</h2>
+    <p class="note" id="key-log">Press Ctrl/Cmd+U, S, P or F12 here — page tries to block them; with Ninja on they must go through. (Ctrl/Cmd+Shift+I/J/C open devtools.)</p>
+  </section>
+</main>
+
+<div id="results"></div>
+<div id="log"></div>
+
+<script>
+  const logEl = document.getElementById('log');
+  function log(msg) { const d = document.createElement('div'); d.textContent = msg; logEl.prepend(d); }
+
+  // ---- blockers the site "deployed" ----
+  for (const type of ['contextmenu', 'copy', 'cut', 'paste', 'selectstart', 'dragstart']) {
+    document.addEventListener(type, (e) => { e.preventDefault(); log(`BLOCKED ${type} (addEventListener)`); });
+  }
+  document.addEventListener('keydown', (e) => {
+    const k = (e.key || '').toLowerCase();
+    if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && (['u', 's', 'p'].includes(k) || (e.shiftKey && ['i', 'j', 'c'].includes(k))))) {
+      e.preventDefault();
+      log(`BLOCKED key ${e.key}`);
+      document.getElementById('key-log').textContent = `last key: ${e.key} — still blocked?`;
+    }
+  });
+  document.oncut = (e) => { e.preventDefault(); };
+
+  // ---- dynamic locked / password fields (post-load, tests observer maintenance) ----
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      const ro = document.createElement('input');
+      ro.id = 'dyn-ro'; ro.readOnly = true; ro.value = 'dynamic readonly field';
+      document.getElementById('dyn-zone').appendChild(ro);
+      const dis = document.createElement('input');
+      dis.id = 'dyn-dis'; dis.disabled = true; dis.value = 'dynamic disabled field';
+      document.getElementById('dyn-zone').appendChild(dis);
+      const pw = document.createElement('input');
+      pw.id = 'dyn-pw'; pw.type = 'password'; pw.value = 'dyn-pass';
+      document.getElementById('dyn-pw-zone').appendChild(pw);
+    }, 400);
+  });
+
+  document.getElementById('add-pw').addEventListener('click', () => {
+    const pw = document.createElement('input');
+    pw.type = 'password'; pw.value = 'added-' + Date.now();
+    document.getElementById('dyn-pw-zone').appendChild(pw);
+  });
+
+  // ---- re-blocker loop: keeps re-adding the body attribute ----
+  let reblocking = true;
+  setInterval(() => {
+    if (reblocking && !document.body.hasAttribute('oncontextmenu')) {
+      document.body.setAttribute('oncontextmenu', 'return false');
+      log('site re-armed body oncontextmenu');
+    }
+  }, 800);
+  document.getElementById('toggle-reblock').addEventListener('click', (e) => {
+    reblocking = !reblocking;
+    e.target.textContent = 'Re-blocker loop: ' + (reblocking ? 'ON' : 'OFF');
+  });
+
+  // ---- overlays ----
+  window.__spawnOverlay = (z = 9999, id = 'ov-' + Math.random().toString(36).slice(2, 7)) => {
+    const d = document.createElement('div');
+    d.id = id;
+    d.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:${z};display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px`;
+    d.textContent = `${id} (z=${z}) — use Remove overlays`;
+    document.getElementById('overlay-zone').appendChild(d);
+    document.body.style.overflow = 'hidden';
+    log(`spawned overlay ${id} z=${z}`);
+    return id;
+  };
+  window.__overlayHidden = (id) => {
+    const el = document.getElementById(id);
+    return !el || !el.isConnected || getComputedStyle(el).display === 'none';
+  };
+  window.__scrollRestored = () =>
+    getComputedStyle(document.body).overflow !== 'hidden' &&
+    getComputedStyle(document.documentElement).overflow !== 'hidden';
+
+  document.getElementById('spawn-ov').addEventListener('click', () => window.__spawnOverlay(9999));
+  document.getElementById('spawn-ov-low').addEventListener('click', () => window.__spawnOverlay(400));
+  document.getElementById('spawn-ov-3').addEventListener('click', () => { window.__spawnOverlay(9001); window.__spawnOverlay(9002); window.__spawnOverlay(9003); });
+
+  // ---- self-test ----
+  window.__wnSelfTest = () => {
+    const d = (el, type, init = {}) => {
+      const ev = new MouseEvent(type, { cancelable: true, bubbles: true, ...init });
+      (el || document.body).dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    const k = (init) => {
+      const ev = new KeyboardEvent('keydown', { cancelable: true, bubbles: true, ...init });
+      document.body.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    const dynRo = document.getElementById('dyn-ro');
+    const dynDis = document.getElementById('dyn-dis');
+    const dynPw = document.getElementById('dyn-pw');
+    return {
+      jsContextmenu: !d(document.getElementById('js-locked'), 'contextmenu'),
+      jsCopy: !d(document.body, 'copy'),
+      jsCut: !d(document.body, 'cut'),
+      jsPaste: !d(document.body, 'paste'),
+      jsSelectstart: !d(document.body, 'selectstart'),
+      jsDragstart: !d(document.body, 'dragstart'),
+      idlOnCopyNeutralized: !d(document.body, 'copy', { bubbles: false }),
+      inlineCtx: !d(document.getElementById('inline-block'), 'contextmenu'),
+      inlineCopy: !d(document.getElementById('inline-block'), 'copy'),
+      bodyAttrEvicted: !document.body.hasAttribute('oncontextmenu'),
+      cssUserSelectText: getComputedStyle(document.getElementById('css-locked')).userSelect === 'text',
+      readonlyUnlocked: !document.getElementById('ro-field').hasAttribute('readonly'),
+      disabledUnlocked: !document.getElementById('dis-field').hasAttribute('disabled'),
+      dynReadonlyUnlocked: dynRo ? !dynRo.hasAttribute('readonly') : null,
+      dynDisabledUnlocked: dynDis ? !dynDis.hasAttribute('disabled') : null,
+      clipboardInputClean: !document.getElementById('clip-field').hasAttribute('onpaste'),
+      passwordRevealed: document.getElementById('pw-field').type === 'text',
+      dynPasswordRevealed: dynPw ? dynPw.type === 'text' : null,
+      keyCtrlU: !k({ key: 'u', ctrlKey: true }),
+      keyCtrlS: !k({ key: 's', ctrlKey: true }),
+      keyF12: !k({ key: 'F12' }),
+      keyCtrlShiftI: !k({ key: 'I', ctrlKey: true, shiftKey: true }),
+    };
+  };
+
+  const resultsEl = document.getElementById('results');
+  function renderResults(res) {
+    const rows = Object.entries(res).map(([k, v]) => {
+      const cls = v === null ? '' : v ? 'pass' : 'fail';
+      const tag = v === null ? 'WAIT' : v ? 'PASS' : 'FAIL';
+      return `<tr><td class="${cls}">${tag}</td><td>${k}</td></tr>`;
+    });
+    resultsEl.innerHTML = `<table>${rows.join('')}</table>`;
+  }
+  function runAndRender() { renderResults(window.__wnSelfTest()); }
+  document.getElementById('run-selftest').addEventListener('click', runAndRender);
+  window.addEventListener('DOMContentLoaded', () => { setTimeout(runAndRender, 700); });
+</script>
+</body>
+</html>

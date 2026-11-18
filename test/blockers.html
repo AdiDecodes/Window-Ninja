@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Window Ninja — blocker test page</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 0 0 240px; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .locked-text { user-select: none; -webkit-user-select: none; padding: 16px; background: #fee2e2; border-radius: 8px; }
+  input, textarea { display: block; margin: 6px 0; padding: 8px; width: 320px; }
+  #overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, .85); color: #fff; display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 22px; text-align: center; }
+  #log { position: fixed; bottom: 0; right: 0; width: 360px; max-height: 40vh; overflow: auto; background: #0f172a; color: #4ade80; font: 11px ui-monospace, monospace; padding: 8px; z-index: 10000; }
+  body.modal-open { overflow: hidden; }
+</style>
+</head>
+<body class="modal-open">
+<main>
+  <h1>Window Ninja — blocker test page</h1>
+
+  <section>
+    <h2>1. JS blockers (addEventListener + preventDefault)</h2>
+    <p class="locked-text">Try to select, right-click or copy this text — all blocked via JS event listeners.</p>
+  </section>
+
+  <section>
+    <h2>2. Inline attribute blockers</h2>
+    <p class="locked-text" oncontextmenu="return false" oncopy="return false" onselectstart="return false">Blocked via inline on* attributes (return false path).</p>
+  </section>
+
+  <section>
+    <h2>3. Locked form</h2>
+    <input readonly value="readonly field">
+    <input disabled value="disabled field">
+    <textarea onpaste="return false" placeholder="paste blocked via inline attr"></textarea>
+  </section>
+
+  <section>
+    <h2>4. Password field</h2>
+    <input type="password" value="hunter2">
+  </section>
+
+  <section>
+    <h2>5. Dev shortcuts</h2>
+    <p>Ctrl/Cmd+C, U, S, P and F12 are intercepted below. Devtools combos (Ctrl/Cmd+Shift+I/J/C) — verify devtools actually opens.</p>
+  </section>
+</main>
+
+<div id="overlay"><div>Fake cookie modal<br><small>Body scroll is locked. Use “Remove overlays”.</small></div></div>
+<div id="log"></div>
+
+<script>
+  const logEl = document.getElementById('log');
+  function log(msg) {
+    const d = document.createElement('div');
+    d.textContent = msg;
+    logEl.prepend(d);
+  }
+
+  for (const type of ['contextmenu', 'copy', 'cut', 'selectstart', 'dragstart']) {
+    document.addEventListener(type, (e) => {
+      e.preventDefault();
+      log(`BLOCKED ${type} (js preventDefault)`);
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const k = (e.key || '').toLowerCase();
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (e.key === 'F12' || (ctrl && (['c', 'u', 's', 'p'].includes(k) || (e.shiftKey && ['i', 'j', 'c'].includes(k))))) {
+      e.preventDefault();
+      log(`BLOCKED key ${e.key}`);
+    }
+  });
+
+  document.oncopy = (e) => { e.preventDefault(); };
+</script>
+</body>
+</html>
