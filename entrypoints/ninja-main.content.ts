@@ -4,6 +4,7 @@ export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
   world: 'MAIN',
+  allFrames: true,
   main() {
     const w = window as typeof window & { __windowNinjaInstalled?: boolean };
     if (w.__windowNinjaInstalled) return;

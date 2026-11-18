@@ -1,7 +1,7 @@
 {
   "name": "window-ninja",
   "version": "0.1.0",
-  "description": "Restore right-click, copy/paste, selection and dev shortcuts on restrictive sites, plus element eraser, input unlock, password reveal.",
+  "description": "Restore right-click, clipboard, selection and dev shortcuts on restrictive sites, plus eraser, input unlock and password reveal.",
   "private": true,
   "type": "module",
   "scripts": {

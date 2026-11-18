@@ -6,8 +6,8 @@ export default defineConfig({
   manifest: {
     name: 'Window Ninja',
     description:
-      'Restore right-click, copy/paste, selection and dev shortcuts on restrictive sites, plus element eraser, input unlock, password reveal.',
-    permissions: ['storage'],
+      'Restore right-click, clipboard, selection and dev shortcuts on restrictive sites, plus eraser, input unlock and password reveal.',
+    permissions: ['storage', 'clipboardWrite'],
     host_permissions: ['<all_urls>'],
     minimum_chrome_version: '111',
     commands: {

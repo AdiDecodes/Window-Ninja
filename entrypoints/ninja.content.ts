@@ -209,11 +209,12 @@ export default defineContentScript({
       const site = settings.sites[host];
       siteEnabled = !!site?.enabled;
       features = getEffectiveFeatures(settings, host);
-      erasedSelectors = site?.erasedSelectors ?? [];
+      erasedSelectors = siteEnabled ? (site?.erasedSelectors ?? []) : [];
 
       if (initialized && prevFeatures.revealPasswords && !features.revealPasswords) {
         restorePasswords(document);
       }
+      if (!siteEnabled) overlayRemoved = false;
       initialized = true;
       prevFeatures = { ...features };
 
