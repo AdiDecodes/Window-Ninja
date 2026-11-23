@@ -15,6 +15,7 @@ export default defineContentScript({
       copyPaste: boolean;
       selection: boolean;
       devShortcuts: boolean;
+      selectMode: boolean;
     };
 
     const state: GuardState = {
@@ -22,6 +23,7 @@ export default defineContentScript({
       copyPaste: false,
       selection: false,
       devShortcuts: false,
+      selectMode: false,
     };
 
     const EVENT_FEATURE: Record<string, keyof GuardState> = {
@@ -37,17 +39,25 @@ export default defineContentScript({
 
     const isCancelableType = (event: Event): boolean => {
       const feature = EVENT_FEATURE[event.type];
-      return feature !== undefined && state[feature];
+      if (feature === undefined) return false;
+      if (state[feature]) return true;
+      // In select mode the goal is copying, so clipboard/select/menu events
+      // are treated as active even if the site-level feature is off.
+      return state.selectMode && feature !== 'devShortcuts';
     };
 
     const isDevShortcut = (e: KeyboardEvent): boolean => {
-      if (!state.devShortcuts) return false;
+      if (!state.devShortcuts) {
+        if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
+        const sel = e.key.toLowerCase();
+        return state.selectMode && (sel === 'c' || sel === 'x');
+      }
       if (e.key === 'F12') return true;
       if (!(e.ctrlKey || e.metaKey)) return false;
       const key = e.key.toLowerCase();
       if (e.shiftKey) return key === 'i' || key === 'j' || key === 'c';
       if (key === 'u' || key === 's' || key === 'p') return true;
-      if (state.copyPaste && (key === 'c' || key === 'x')) return true;
+      if ((state.copyPaste || state.selectMode) && (key === 'c' || key === 'x')) return true;
       return false;
     };
 
@@ -74,6 +84,40 @@ export default defineContentScript({
       }
     } catch {
       // page anti-tamper; fail soft
+    }
+
+    // While select mode is on, page code can't programmatically wipe the
+    // user's drag selection — sites clear it from a selectionchange listener
+    // via any of these methods (collapse, setBaseAndExtent, …), so all of
+    // them are neutralized. The content script has its own realm, so this
+    // doesn't touch Window Ninja's own selection calls.
+    try {
+      const proto = Selection.prototype;
+      const wrap = (name: string, guard: (this: Selection, args: unknown[]) => boolean): void => {
+        const native = proto[name as keyof Selection] as ((...a: unknown[]) => void) | undefined;
+        if (typeof native !== 'function') return;
+        Object.defineProperty(proto, name, {
+          configurable: true,
+          value(this: Selection, ...args: unknown[]) {
+            if (guard.call(this, args)) return;
+            native.apply(this, args);
+          },
+        });
+      };
+      wrap('removeAllRanges', () => state.selectMode);
+      wrap('collapse', () => state.selectMode);
+      wrap('setPosition', () => state.selectMode);
+      wrap('collapseToStart', () => state.selectMode);
+      wrap('collapseToEnd', () => state.selectMode);
+      wrap('setBaseAndExtent', () => state.selectMode);
+      wrap('removeRange', () => state.selectMode);
+      wrap('modify', (args) => state.selectMode && args[0] === 'move');
+      wrap('addRange', (args) => {
+        const range = args[0] as { collapsed?: boolean } | undefined;
+        return state.selectMode && !!range?.collapsed;
+      });
+    } catch {
+      // fail soft
     }
 
     const HANDLER_FEATURE: Record<string, keyof GuardState> = {

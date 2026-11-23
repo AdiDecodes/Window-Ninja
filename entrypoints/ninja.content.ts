@@ -51,6 +51,7 @@ export default defineContentScript({
     let erasedSelectors: string[] = [];
     let overlayRemoved = false;
     let eraseMode = false;
+    let selectMode = false;
 
     // ---------- event gatekeeper ----------
     // Registered synchronously at document_start so these run before any page
@@ -60,16 +61,16 @@ export default defineContentScript({
     const isGatekeptType = (type: string, event: Event): boolean => {
       switch (type) {
         case 'contextmenu':
-          return features.contextMenu;
+          return features.contextMenu || selectMode;
         case 'copy':
         case 'cut':
         case 'paste':
         case 'beforecopy':
         case 'beforecut':
-          return features.copyPaste;
+          return features.copyPaste || selectMode;
         case 'selectstart':
         case 'dragstart':
-          return features.selection;
+          return features.selection || selectMode;
         default:
           return false;
       }
@@ -104,6 +105,7 @@ export default defineContentScript({
         copyPaste: features.copyPaste,
         selection: features.selection,
         devShortcuts: features.devShortcuts,
+        selectMode,
       });
       document.documentElement?.setAttribute(WN_FEATURES_ATTR, payload);
       window.dispatchEvent(new CustomEvent(WN_EVENT, { detail: payload }));
@@ -136,6 +138,12 @@ export default defineContentScript({
         if (eraseMode) {
           rules.push(
             `.${WN_HOVER_CLASS} { outline: 2px solid #ffffff !important; outline-offset: -2px !important; box-shadow: 0 0 0 1px #000000 !important; cursor: crosshair !important; }`,
+          );
+        }
+        if (selectMode) {
+          rules.push(
+            '*, *::before, *::after { cursor: text !important; user-select: text !important; -webkit-user-select: text !important; }',
+            '::selection { background: highlight !important; color: highlighttext !important; }',
           );
         }
         for (const selector of erasedSelectors) {
@@ -213,6 +221,7 @@ export default defineContentScript({
       overlayRemoved = siteEnabled && site?.overlaysRemoved === true;
 
       if (!siteEnabled && eraseMode) stopEraseMode();
+      if (!siteEnabled && selectMode) stopSelectMode();
 
       pushFeatures();
       rebuildStyles();
@@ -241,6 +250,10 @@ export default defineContentScript({
         case 'erase-mode':
           if (eraseMode) stopEraseMode();
           else startEraseMode();
+          break;
+        case 'select-mode':
+          if (selectMode) stopSelectMode();
+          else startSelectMode();
           break;
         case 'remove-overlays':
           removeOverlays();
@@ -382,6 +395,77 @@ export default defineContentScript({
       }
       const selector = getStableSelector(target);
       if (selector) await addErasedSelectors(host, [selector]);
+    };
+
+    // ---------- text select mode ----------
+
+    // Sites defeat the caret with user-select: none, mousedown preventDefault
+    // and click/selection-clearing handlers. While this mode is on we force a
+    // text cursor and selectable text, and swallow the mouse events site code
+    // uses to interfere — without preventDefault, so the browser's native
+    // drag-select still works. The gatekeeper above also allows contextmenu,
+    // selectstart and clipboard events so the selection can actually be copied.
+    const onSelectMouse = (event: Event): void => {
+      event.stopImmediatePropagation();
+    };
+
+    const onSelectKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      stopSelectMode();
+    };
+
+    const showSelectToast = (): HTMLElement | null => {
+      const host = document.body ?? document.documentElement;
+      if (!host) return null;
+      const toast = document.createElement('div');
+      toast.textContent = 'WN select mode - drag to select, Esc to exit';
+      Object.assign(toast.style, {
+        position: 'fixed',
+        left: '50%',
+        bottom: '18px',
+        transform: 'translateX(-50%)',
+        zIndex: '2147483647',
+        padding: '6px 12px',
+        borderRadius: '999px',
+        background: 'rgba(17, 24, 39, 0.92)',
+        color: '#f9fafb',
+        font: '600 12px/1.4 system-ui, sans-serif',
+        pointerEvents: 'none',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.35)',
+      } satisfies Partial<CSSStyleDeclaration>);
+      host.appendChild(toast);
+      return toast;
+    };
+
+    let selectToast: HTMLElement | null = null;
+
+    const startSelectMode = (): void => {
+      if (selectMode) return;
+      selectMode = true;
+      rebuildStyles();
+      pushFeatures();
+      window.addEventListener('mousedown', onSelectMouse, true);
+      window.addEventListener('mouseup', onSelectMouse, true);
+      window.addEventListener('click', onSelectMouse, true);
+      window.addEventListener('dblclick', onSelectMouse, true);
+      window.addEventListener('keydown', onSelectKey, true);
+      selectToast = showSelectToast();
+    };
+
+    const stopSelectMode = (): void => {
+      if (!selectMode) return;
+      selectMode = false;
+      window.removeEventListener('mousedown', onSelectMouse, true);
+      window.removeEventListener('mouseup', onSelectMouse, true);
+      window.removeEventListener('click', onSelectMouse, true);
+      window.removeEventListener('dblclick', onSelectMouse, true);
+      window.removeEventListener('keydown', onSelectKey, true);
+      selectToast?.remove();
+      selectToast = null;
+      rebuildStyles();
+      pushFeatures();
     };
 
     // ---------- overlays ----------

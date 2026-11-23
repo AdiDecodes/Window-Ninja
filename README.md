@@ -14,7 +14,8 @@ Tired of sites that block right-click, kill your clipboard, or trap you behind a
 - **Element eraser:** hover + click to make any element vanish (`Alt+Shift+E`)
 - **Input unlocker:** strip `readonly`/`disabled` from form fields (`Alt+Shift+U`)
 - **Password reveal:** show password fields as plain text (`Alt+Shift+P`)
-- **Overlay remover:** wipe fullscreen modal overlays and scroll locks (`Alt+Shift+O`)
+- **Overlay remover:** wipe fullscreen modal overlays and scroll locks (popup button)
+- **Text select mode:** force a text cursor and selectable text anywhere, then drag to select and copy (`Alt+Shift+S`)
 
 ## Install
 

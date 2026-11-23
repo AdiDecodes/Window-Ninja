@@ -18,6 +18,10 @@ export default defineConfig({
         suggested_key: { default: 'Alt+Shift+E' },
         description: 'Toggle element eraser',
       },
+      'select-mode': {
+        suggested_key: { default: 'Alt+Shift+S' },
+        description: 'Toggle text select mode',
+      },
       'toggle-unlock-inputs': {
         suggested_key: { default: 'Alt+Shift+U' },
         description: 'Toggle input un-locker',
@@ -26,8 +30,9 @@ export default defineConfig({
         suggested_key: { default: 'Alt+Shift+P' },
         description: 'Toggle password reveal',
       },
+      // Chrome allows at most 4 commands with suggested keys; the rest are
+      // assignable at chrome://extensions/shortcuts and via the popup.
       'remove-overlays': {
-        suggested_key: { default: 'Alt+Shift+O' },
         description: 'Remove overlay layers',
       },
     },

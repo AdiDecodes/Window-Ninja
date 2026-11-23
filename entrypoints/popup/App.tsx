@@ -160,6 +160,15 @@ export default function App() {
           <Button
             variant="default"
             fullWidth
+            justify="space-between"
+            rightSection={<Kbd size="xs">Alt+Shift+S</Kbd>}
+            onClick={() => runCommand('select-mode')}
+          >
+            Select text
+          </Button>
+          <Button
+            variant="default"
+            fullWidth
             title="Restore erased"
             aria-label="Restore erased"
             justify="space-between"

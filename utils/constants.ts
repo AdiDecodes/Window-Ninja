@@ -61,6 +61,7 @@ export const WN_ERASE_RELAY = 'window-ninja:erase-relay';
 
 export type WnCommand =
   | 'erase-mode'
+  | 'select-mode'
   | 'remove-overlays'
   | 'restore-erased'
   | 'toggle-unlock-inputs'
