@@ -15,6 +15,7 @@ export function normalizeSettings(stored: unknown): Settings {
   return {
     defaults: { ...DEFAULT_SETTINGS.defaults, ...raw.defaults },
     sites: raw.sites && typeof raw.sites === 'object' ? raw.sites : {},
+    telemetry: raw.telemetry !== false,
   };
 }
 
@@ -35,7 +36,7 @@ export async function updateSettings(mutate: (settings: Settings) => void): Prom
 }
 
 export function emptySite(): SiteSettings {
-  return { enabled: false, features: {}, erasedSelectors: [] };
+  return { enabled: false, features: {}, erasedSelectors: [], overlaysRemoved: false };
 }
 
 export function getSiteSettings(settings: Settings, host: string): SiteSettings {
@@ -58,13 +59,25 @@ export function getEffectiveFeatures(settings: Settings, host: string): Features
   return { ...settings.defaults, ...site.features };
 }
 
-export async function addErasedSelector(host: string, selector: string): Promise<void> {
+function pushErased(site: SiteSettings, selector: string): void {
+  if (site.erasedSelectors.includes(selector)) return;
+  site.erasedSelectors.push(selector);
+  if (site.erasedSelectors.length > MAX_ERASED_SELECTORS) {
+    site.erasedSelectors = site.erasedSelectors.slice(-MAX_ERASED_SELECTORS);
+  }
+}
+
+export async function addErasedSelectors(host: string, selectors: readonly string[]): Promise<void> {
+  if (selectors.length === 0) return;
   await updateSite(host, (site) => {
-    if (site.erasedSelectors.includes(selector)) return;
-    site.erasedSelectors.push(selector);
-    if (site.erasedSelectors.length > MAX_ERASED_SELECTORS) {
-      site.erasedSelectors = site.erasedSelectors.slice(-MAX_ERASED_SELECTORS);
-    }
+    for (const selector of selectors) pushErased(site, selector);
+  });
+}
+
+export async function saveRemovedOverlays(host: string, selectors: readonly string[]): Promise<void> {
+  await updateSite(host, (site) => {
+    site.overlaysRemoved = true;
+    for (const selector of selectors) pushErased(site, selector);
   });
 }
 

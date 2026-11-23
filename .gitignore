@@ -3,3 +3,4 @@ dist
 .wxt
 .DS_Store
 .commandcode
+.env

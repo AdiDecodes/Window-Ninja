@@ -4,7 +4,7 @@ _Last updated: November 18, 2026_
 
 Window Ninja is a browser utility that restores native browser behavior (right-click, clipboard actions, text selection, developer shortcuts) on websites that block them, and provides local page-cleanup tools (element eraser, input unlock, password reveal).
 
-**Window Ninja does not collect, transmit, sell, or share any user data.**
+**Window Ninja never collects page content, browsing history, passwords, clipboard data, or anything that identifies you.** An optional, anonymous usage-statistics feature (on by default, one click to turn off) is described below — it can be disabled in the extension options at any time.
 
 ## What the extension accesses
 
@@ -15,15 +15,27 @@ Window Ninja is a browser utility that restores native browser behavior (right-c
 ## What is stored
 
 - Your settings (which sites are enabled, feature toggles, erased-element selectors) are saved in `chrome.storage.sync`, which syncs through your own signed-in Chrome profile. This data contains only your preferences — never page content, clipboard data, or passwords.
+- A random identifier (UUID) for anonymous usage statistics is saved in `chrome.storage.local`. It is not linked to your name, email, account, or identity in any way, and removing the extension deletes it.
 - Uninstalling the extension removes this data.
+
+## Anonymous usage statistics (optional)
+
+If enabled (default), the extension sends occasional counts of feature usage — for example "the element eraser was used" or "a site was enabled" — together with:
+
+- The extension version.
+- Your browser language.
+- The random UUID described above.
+- A timestamp and a coarse country, derived from your IP address by the server. Your IP address itself is not stored.
+
+What is **never** sent: page content, URLs, hostnames or site names, erased selectors, passwords, clipboard data, or anything about which sites you use Window Ninja on.
+
+You can turn this off any time in **Options → Anonymous usage stats**. When disabled, the extension makes no network requests of any kind.
 
 ## What is NOT done
 
-- No analytics, tracking, or telemetry.
-- No network requests of any kind.
+- No page content, URLs, browsing history, passwords, or clipboard data ever leaves your browser.
+- No advertising, no profiling, no data sold or shared with third parties.
 - No remote code; all code is bundled in the extension package.
-- No data sold or shared with third parties.
-- No ads.
 
 ## Permissions
 

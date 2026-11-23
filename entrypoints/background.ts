@@ -1,20 +1,46 @@
 import {
   DEFAULT_SETTINGS,
+  FEATURE_KEYS,
   STORAGE_KEY,
   WN_COMMAND_MESSAGE,
+  type Settings,
   type WnCommand,
 } from '../utils/constants';
-import { getSettings } from '../utils/storage';
+import { getSettings, normalizeSettings } from '../utils/storage';
+import { setTelemetryEnabled, track } from '../utils/telemetry';
+
+const countEnabledSites = (settings: Settings): number =>
+  Object.values(settings.sites).filter((site) => site.enabled).length;
+
+const diffSettingsForTelemetry = (oldSettings: Settings, newSettings: Settings): void => {
+  setTelemetryEnabled(newSettings.telemetry);
+  for (const key of FEATURE_KEYS) {
+    if (oldSettings.defaults[key] !== newSettings.defaults[key]) {
+      track('defaults_changed', { feature: key, enabled: newSettings.defaults[key] });
+    }
+  }
+  const before = countEnabledSites(oldSettings);
+  const after = countEnabledSites(newSettings);
+  if (after > before) track('sites_enabled', { count: after - before });
+  if (after < before) track('sites_disabled', { count: before - after });
+};
 
 export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener(async () => {
+  void getSettings().then((settings) => setTelemetryEnabled(settings.telemetry));
+
+  browser.runtime.onInstalled.addListener(async (details) => {
     const stored = await browser.storage.sync.get(STORAGE_KEY);
     if (!stored[STORAGE_KEY]) {
       await browser.storage.sync.set({ [STORAGE_KEY]: structuredClone(DEFAULT_SETTINGS) });
     }
+    if (details.reason === 'install' || details.reason === 'update') {
+      setTelemetryEnabled((await getSettings()).telemetry);
+      track(details.reason, { previousVersion: details.previousVersion });
+    }
   });
 
   browser.commands.onCommand.addListener(async (command: string) => {
+    track('command', { command });
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return;
     try {
@@ -63,6 +89,8 @@ export default defineBackground(() => {
 
   browser.storage.onChanged.addListener(async (changes, area) => {
     if (area !== 'sync' || !changes[STORAGE_KEY]) return;
+    const change = changes[STORAGE_KEY];
+    diffSettingsForTelemetry(normalizeSettings(change.oldValue), normalizeSettings(change.newValue));
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) void refreshBadge(tab.id, tab.url);
   });

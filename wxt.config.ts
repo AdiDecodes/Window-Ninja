@@ -3,6 +3,9 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   outDir: 'dist',
+  vite: () => ({
+    envPrefix: ['WN_', 'VITE_', 'WXT_'],
+  }),
   manifest: {
     name: 'Window Ninja',
     description:

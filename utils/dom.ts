@@ -116,22 +116,11 @@ export function unlockFormFields(root: ParentNode): void {
   }
 }
 
-export function revealPasswords(root: ParentNode): void {
-  const inputs = root.querySelectorAll<HTMLInputElement>('input[type="password"]');
-  for (const input of inputs) {
-    if (input.dataset.wnOrigType) continue;
-    input.dataset.wnOrigType = 'password';
-    input.type = 'text';
-  }
-}
-
-export function restorePasswords(root: ParentNode): void {
-  const inputs = root.querySelectorAll<HTMLInputElement>('input[data-wn-orig-type]');
-  for (const input of inputs) {
-    input.type = input.dataset.wnOrigType ?? 'password';
-    delete input.dataset.wnOrigType;
-  }
-}
+// Reveal via CSS instead of swapping input.type: the type attribute stays
+// "password", so site event handlers and framework re-renders that reset it
+// can't undo the reveal, and fields added later are covered automatically.
+export const REVEAL_PASSWORDS_RULE =
+  'input[type="password"] { -webkit-text-security: none !important; }';
 
 export function findOverlays(): HTMLElement[] {
   const vw = window.innerWidth;

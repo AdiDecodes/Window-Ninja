@@ -33,7 +33,7 @@
     <h2 style="margin:0 0 8px">Self-test</h2>
     <button id="run-selftest">Run self-test now</button>
     <button id="toggle-reblock">Re-blocker loop: ON</button>
-    <span class="note">re-adds body oncontextmenu attr every 800ms — extension must keep evicting it</span>
+    <span class="note">re-adds body oncontextmenu attr + re-hides the password field every 800ms — extension must survive both</span>
   </section>
 
   <section>
@@ -79,7 +79,7 @@
     <button id="spawn-ov">Spawn overlay (z 9999)</button>
     <button id="spawn-ov-low">Spawn overlay (z 400 — should survive)</button>
     <button id="spawn-ov-3">Spawn 3 stacked overlays</button>
-    <p class="note">Then use Remove overlays (popup / Alt+Shift+O). Body scroll must be restored. The z-400 one must remain visible.</p>
+    <p class="note">Then use Remove overlays (popup / Alt+Shift+O). Body scroll must be restored. The z-400 one must remain visible. Reload the page: overlays must stay hidden and scroll must remain unlocked (persisted per-site).</p>
     <div id="overlay-zone"></div>
   </section>
 
@@ -131,12 +131,18 @@
     document.getElementById('dyn-pw-zone').appendChild(pw);
   });
 
-  // ---- re-blocker loop: keeps re-adding the body attribute ----
+  // ---- re-blocker loop: keeps re-adding the body attribute + re-hiding password ----
   let reblocking = true;
   setInterval(() => {
-    if (reblocking && !document.body.hasAttribute('oncontextmenu')) {
+    if (!reblocking) return;
+    if (!document.body.hasAttribute('oncontextmenu')) {
       document.body.setAttribute('oncontextmenu', 'return false');
       log('site re-armed body oncontextmenu');
+    }
+    const pw = document.getElementById('pw-field');
+    if (pw && pw.type !== 'password') {
+      pw.type = 'password';
+      log('site reverted pw-field type to password');
     }
   }, 800);
   document.getElementById('toggle-reblock').addEventListener('click', (e) => {
@@ -199,8 +205,8 @@
       dynReadonlyUnlocked: dynRo ? !dynRo.hasAttribute('readonly') : null,
       dynDisabledUnlocked: dynDis ? !dynDis.hasAttribute('disabled') : null,
       clipboardInputClean: !document.getElementById('clip-field').hasAttribute('onpaste'),
-      passwordRevealed: document.getElementById('pw-field').type === 'text',
-      dynPasswordRevealed: dynPw ? dynPw.type === 'text' : null,
+      passwordRevealed: getComputedStyle(document.getElementById('pw-field')).webkitTextSecurity === 'none',
+      dynPasswordRevealed: dynPw ? getComputedStyle(dynPw).webkitTextSecurity === 'none' : null,
       keyCtrlU: !k({ key: 'u', ctrlKey: true }),
       keyCtrlS: !k({ key: 's', ctrlKey: true }),
       keyF12: !k({ key: 'F12' }),

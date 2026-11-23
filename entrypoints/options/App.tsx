@@ -149,12 +149,22 @@ export default function App() {
 
         <Stack gap={6}>
           <Card withBorder radius="md" p="sm">
-            <Stack gap={6}>
+            <Stack gap={10}>
+              <Switch
+                size="sm"
+                label="Anonymous usage stats"
+                description="Sends feature-usage counts with a random ID. Never page content, URLs, site names, or passwords."
+                checked={settings.telemetry}
+                onChange={(e) =>
+                  void setSettings({ ...settings, telemetry: e.currentTarget.checked })
+                }
+              />
               <Button variant="light" style={{ alignSelf: 'flex-start' }} onClick={resetAll}>
                 Reset all settings
               </Button>
               <Text size="xs" c="dimmed">
-                Window Ninja stores only your preferences via Chrome sync. It collects nothing.
+                Window Ninja stores only your preferences via Chrome sync. Page content, URLs and
+                passwords never leave your browser.
               </Text>
             </Stack>
           </Card>

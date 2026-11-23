@@ -1,5 +1,6 @@
 import {
   WN_COMMAND_MESSAGE,
+  WN_ERASE_RELAY,
   WN_EVENT,
   WN_FEATURES_ATTR,
   WN_HOVER_CLASS,
@@ -11,11 +12,12 @@ import {
   type WnCommand,
 } from '../utils/constants';
 import {
-  addErasedSelector,
+  addErasedSelectors,
   getEffectiveFeatures,
   getSettings,
   onSettingsChanged,
   popErasedSelector,
+  saveRemovedOverlays,
   updateSite,
 } from '../utils/storage';
 import {
@@ -23,8 +25,7 @@ import {
   copyPasswordSelection,
   findOverlays,
   isPasswordClipboardTarget,
-  restorePasswords,
-  revealPasswords,
+  REVEAL_PASSWORDS_RULE,
   stripBlockingHandlers,
   unlockFormFields,
   unlockPasswordClipboard,
@@ -50,8 +51,6 @@ export default defineContentScript({
     let erasedSelectors: string[] = [];
     let overlayRemoved = false;
     let eraseMode = false;
-    let initialized = false;
-    let prevFeatures: Features = { ...features };
 
     // ---------- event gatekeeper ----------
     // Registered synchronously at document_start so these run before any page
@@ -131,6 +130,9 @@ export default defineContentScript({
         if (siteEnabled && features.selection) {
           rules.push('*, *::before, *::after { user-select: text !important; -webkit-user-select: text !important; }');
         }
+        if (siteEnabled && features.revealPasswords) {
+          rules.push(REVEAL_PASSWORDS_RULE);
+        }
         if (eraseMode) {
           rules.push(
             `.${WN_HOVER_CLASS} { outline: 2px solid #ffffff !important; outline-offset: -2px !important; box-shadow: 0 0 0 1px #000000 !important; cursor: crosshair !important; }`,
@@ -164,8 +166,7 @@ export default defineContentScript({
       (features.selection ||
         features.contextMenu ||
         features.copyPaste ||
-        features.unlockInputs ||
-        features.revealPasswords);
+        features.unlockInputs);
 
     const maintain = (): void => {
       if (!siteEnabled) return;
@@ -174,7 +175,6 @@ export default defineContentScript({
       }
       if (features.copyPaste) unlockPasswordClipboard(document);
       if (features.unlockInputs) unlockFormFields(document);
-      if (features.revealPasswords) revealPasswords(document);
     };
 
     const scheduleMaintain = (): void => {
@@ -210,13 +210,7 @@ export default defineContentScript({
       siteEnabled = !!site?.enabled;
       features = getEffectiveFeatures(settings, host);
       erasedSelectors = siteEnabled ? (site?.erasedSelectors ?? []) : [];
-
-      if (initialized && prevFeatures.revealPasswords && !features.revealPasswords) {
-        restorePasswords(document);
-      }
-      if (!siteEnabled) overlayRemoved = false;
-      initialized = true;
-      prevFeatures = { ...features };
+      overlayRemoved = siteEnabled && site?.overlaysRemoved === true;
 
       if (!siteEnabled && eraseMode) stopEraseMode();
 
@@ -272,10 +266,67 @@ export default defineContentScript({
     // ---------- element eraser ----------
 
     let hovered: Element | null = null;
+    let relayedHover: Element | null = null;
+
+    // Clicks on cross-origin ad iframes land inside the frame, where nothing
+    // we persist survives a reload. Those frames relay up so the hosting
+    // iframe element gets erased in a frame whose selectors persist.
+    const relayErase = ((): boolean => {
+      if (window.top === window) return false;
+      try {
+        void window.parent.location.href;
+        return false;
+      } catch {
+        return true;
+      }
+    })();
+
+    const relayUp = (kind: 'hover' | 'erase'): void => {
+      window.parent?.postMessage({ type: WN_ERASE_RELAY, kind }, '*');
+    };
+
+    const findFrameByWindow = (source: MessageEvent['source']): Element | null => {
+      if (!source) return null;
+      for (const frame of document.querySelectorAll('iframe, frame')) {
+        if ((frame as HTMLIFrameElement).contentWindow === source) return frame;
+      }
+      return null;
+    };
+
+    const onEraseRelay = (event: MessageEvent): void => {
+      if (!eraseMode) return;
+      const data = event.data as { type?: string; kind?: string } | null;
+      if (data?.type !== WN_ERASE_RELAY || (data.kind !== 'hover' && data.kind !== 'erase')) return;
+      const frame = findFrameByWindow(event.source);
+      if (!frame) return;
+      if (relayErase) {
+        // Nothing we persist in this frame's document survives a reload, so
+        // pass the relay up until it reaches a frame that can persist.
+        window.parent?.postMessage(data, '*');
+        return;
+      }
+      if (data.kind === 'erase') {
+        frame.classList.remove(WN_HOVER_CLASS);
+        if (frame === hovered) hovered = null;
+        void eraseElement(frame);
+        return;
+      }
+      if (frame === hovered) return;
+      hovered?.classList.remove(WN_HOVER_CLASS);
+      hovered = frame;
+      frame.classList.add(WN_HOVER_CLASS);
+    };
+    window.addEventListener('message', onEraseRelay);
 
     const onEraseHover = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof Element) || target === hovered) return;
+      if (relayErase) {
+        if (target === relayedHover) return;
+        relayedHover = target;
+        relayUp('hover');
+        return;
+      }
       hovered?.classList.remove(WN_HOVER_CLASS);
       hovered = target;
       hovered.classList.add(WN_HOVER_CLASS);
@@ -284,6 +335,10 @@ export default defineContentScript({
     const onEraseClick = (event: MouseEvent): void => {
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (relayErase) {
+        relayUp('erase');
+        return;
+      }
       const target = event.target;
       if (target instanceof Element) void eraseElement(target);
     };
@@ -314,6 +369,7 @@ export default defineContentScript({
       window.removeEventListener('keydown', onEraseKey, true);
       hovered?.classList.remove(WN_HOVER_CLASS);
       hovered = null;
+      relayedHover = null;
       rebuildStyles();
     };
 
@@ -325,15 +381,22 @@ export default defineContentScript({
         return;
       }
       const selector = getStableSelector(target);
-      if (selector) await addErasedSelector(host, selector);
+      if (selector) await addErasedSelectors(host, [selector]);
     };
 
     // ---------- overlays ----------
 
     const removeOverlays = (): void => {
-      for (const el of findOverlays()) {
-        el.style.setProperty('display', 'none', 'important');
+      const overlays = findOverlays();
+      const selectors: string[] = [];
+      for (const el of overlays) {
+        // Shadow DOM nodes can't be matched by a document selector, so they
+        // can only be hidden inline for this page load.
+        const selector = isShadowElement(el) ? null : getStableSelector(el);
+        if (selector) selectors.push(selector);
+        else el.style.setProperty('display', 'none', 'important');
       }
+      if (overlays.length > 0) void saveRemovedOverlays(host, selectors);
       overlayRemoved = true;
       rebuildStyles();
     };

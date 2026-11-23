@@ -33,16 +33,19 @@ export interface SiteSettings {
   enabled: boolean;
   features: Partial<Features>;
   erasedSelectors: string[];
+  overlaysRemoved?: boolean;
 }
 
 export interface Settings {
   defaults: Features;
   sites: Record<string, SiteSettings>;
+  telemetry: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   defaults: { ...DEFAULT_FEATURES },
   sites: {},
+  telemetry: true,
 };
 
 export const STORAGE_KEY = 'settings';
@@ -54,6 +57,7 @@ export const WN_COMMAND_MESSAGE = 'wn:command';
 export const WN_STYLE_ID = 'window-ninja-styles';
 export const WN_OVERLAY_FIX_ID = 'window-ninja-overlay-fix';
 export const WN_HOVER_CLASS = 'wn-erase-hover';
+export const WN_ERASE_RELAY = 'window-ninja:erase-relay';
 
 export type WnCommand =
   | 'erase-mode'
